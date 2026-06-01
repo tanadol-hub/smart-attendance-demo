@@ -1,130 +1,152 @@
 // app/admin/dashboard/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import ImageModal from '@/components/admin/ImageModal';
 
-// สร้างข้อมูลจำลอง (Mock Data) ของเด็กที่เช็คชื่อเข้ามา
-const mockRecords = [
-  { id: '66012345', name: 'นายสมชาย สายเนิร์ด', time: '09:02 น.', distance: 12.5, status: 'PENDING' },
-  { id: '66012389', name: 'นางสาวสมศรี เรียนดี', time: '09:05 น.', distance: 4.2, status: 'PENDING' },
-  { id: '66012412', name: 'นายมานะ ขยันยิ่ง', time: '08:58 น.', distance: 22.1, status: 'APPROVED' },
-];
+interface Activity {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
 
-export default function AdminDashboardPage() {
-  const [records, setRecords] = useState(mockRecords);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<typeof mockRecords[0] | null>(null);
+interface CheckInRecord {
+  id: string;
+  activityId: string;
+  studentId: string;
+  studentName: string;
+  timestamp: string;
+  photoUrl: string;
+  distance: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
 
-  const openVerification = (student: typeof mockRecords[0]) => {
-    setSelectedStudent(student);
-    setIsModalOpen(true);
+export default function AdminDashboard() {
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [checkIns, setCheckIns] = useState<CheckInRecord[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+
+  useEffect(() => {
+    // โหลดข้อมูลทั้งหมดเมื่อเปิดหน้า
+    const loadData = () => {
+      const savedActs = localStorage.getItem('global_activities');
+      if (savedActs) setActivities(JSON.parse(savedActs));
+
+      const savedRecords = localStorage.getItem('global_checkins');
+      if (savedRecords) setCheckIns(JSON.parse(savedRecords));
+    };
+    setTimeout(loadData, 0);
+  }, []);
+
+  // ฟังก์ชันอัปเดตสถานะจากหน้าแดชบอร์ด
+  const handleUpdateStatus = (recordId: string, newStatus: 'APPROVED' | 'REJECTED') => {
+    const updated = checkIns.map(r => r.id === recordId ? { ...r, status: newStatus } : r);
+    setCheckIns(updated);
+    localStorage.setItem('global_checkins', JSON.stringify(updated));
   };
 
-  // ฟังก์ชันเวลากดอนุมัติในโมดอล
-  const handleApprove = () => {
-    if (selectedStudent) {
-      setRecords(records.map(r => r.id === selectedStudent.id ? { ...r, status: 'APPROVED' } : r));
-      setIsModalOpen(false);
-    }
-  };
-
-  // ฟังก์ชันเวลากดปฏิเสธในโมดอล
-  const handleReject = () => {
-    if (selectedStudent) {
-      setRecords(records.map(r => r.id === selectedStudent.id ? { ...r, status: 'REJECTED' } : r));
-      setIsModalOpen(false);
-    }
-  };
+  // คำนวณสถิติ
+  const pendingCount = checkIns.filter(r => r.status === 'PENDING').length;
+  const activeActivitiesCount = activities.filter(a => a.isActive).length;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 sm:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50 p-6 font-sans">
+      <div className="max-w-5xl mx-auto space-y-6">
         
-        {/* หัวกระดาษ */}
-        <div className="flex justify-between items-center border-b pb-4">
+        {/* Header */}
+        <div className="flex justify-between items-center border-b border-slate-200 pb-4">
           <div>
-            <h1 className="text-2xl font-black text-gray-950">📊 แดชบอร์ดผู้ดูแลระบบ</h1>
-            <p className="text-sm text-gray-500 mt-0.5">กิจกรรม: ปฐมนิเทศนักศึกษาใหม่ 2026</p>
+            <h1 className="text-2xl font-black text-slate-900">📊 แดชบอร์ดภาพรวมระบบ</h1>
+            <p className="text-xs text-slate-500 mt-1">สรุปข้อมูลการเช็คชื่อและกิจกรรมทั้งหมด</p>
           </div>
-          <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full">🔴 กำลังเปิดรับเช็คชื่อ</span>
-        </div>
-
-        {/* การ์ดสรุปจำนวนยอดสรุป */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm text-center">
-            <span className="text-xs font-medium text-gray-500 block">มาเรียนทั้งหมด</span>
-            <span className="text-2xl font-black text-gray-900">3 คน</span>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm text-center">
-            <span className="text-xs font-medium text-gray-500 block text-green-600">อนุมัติแล้ว</span>
-            <span className="text-2xl font-black text-green-600">
-              {records.filter(r => r.status === 'APPROVED').length} คน
-            </span>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm text-center">
-            <span className="text-xs font-medium text-gray-500 block text-amber-500">รอตรวจสอบ</span>
-            <span className="text-2xl font-black text-amber-500">
-              {records.filter(r => r.status === 'PENDING').length} คน
-            </span>
+          <div className="flex gap-2">
+            <Link href="/" className="text-xs font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2.5 rounded-xl transition">
+              🏠 หน้าแรก
+            </Link>
+            <Link href="/admin/activities" className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl shadow transition">
+              📂 จัดการกิจกรรมทั้งหมด
+            </Link>
           </div>
         </div>
 
-        {/* ตารางรายชื่อนักศึกษา */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="p-4 bg-gray-50 border-b font-bold text-sm text-gray-700">รายชื่อการส่งเช็คชื่อล่าสุด</div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-700">
-              <thead className="bg-gray-100 text-xs font-bold uppercase text-gray-600 border-b">
-                <tr>
-                  <th className="p-4">รหัสนักศึกษา</th>
-                  <th className="p-4">ชื่อ-นามสกุล</th>
-                  <th className="p-4">เวลาส่ง</th>
-                  <th className="p-4">สถานะ</th>
-                  <th className="p-4 text-center">จัดการ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {records.map((record) => (
-                  <tr key={record.id} className="hover:bg-gray-50 transition">
-                    <td className="p-4 font-mono font-medium text-gray-900">{record.id}</td>
-                    <td className="p-4 font-semibold text-gray-800">{record.name}</td>
-                    <td className="p-4 text-gray-500">{record.time}</td>
-                    <td className="p-4">
-                      {record.status === 'PENDING' && <span className="bg-amber-50 text-amber-700 text-xs px-2.5 py-1 rounded-md font-bold">⏳ รอตรวจรูป</span>}
-                      {record.status === 'APPROVED' && <span className="bg-green-50 text-green-700 text-xs px-2.5 py-1 rounded-md font-bold">✅ ผ่านแล้ว</span>}
-                      {record.status === 'REJECTED' && <span className="bg-red-50 text-red-700 text-xs px-2.5 py-1 rounded-md font-bold">❌ ถูกปฏิเสธ</span>}
-                    </td>
-                    <td className="p-4 text-center">
-                      <button
-                        onClick={() => openVerification(record)}
-                        disabled={record.status !== 'PENDING'}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition ${
-                          record.status === 'PENDING'
-                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        }`}
-                      >
-                        {record.status === 'PENDING' ? '👁️ ดูหลักฐาน' : 'ตรวจแล้ว'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* สรุปสถิติ (Cards) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl">📝</div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase">กิจกรรมที่เปิดอยู่</p>
+              <p className="text-2xl font-black text-slate-900">{activeActivitiesCount} <span className="text-sm font-medium text-slate-500">วิชา</span></p>
+            </div>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center text-xl">⏳</div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase">รอการอนุมัติ</p>
+              <p className="text-2xl font-black text-slate-900">{pendingCount} <span className="text-sm font-medium text-slate-500">รายการ</span></p>
+            </div>
+          </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-green-50 text-green-600 flex items-center justify-center text-xl">✅</div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase">เช็คชื่อสำเร็จแล้ว</p>
+              <p className="text-2xl font-black text-slate-900">{checkIns.filter(r => r.status === 'APPROVED').length} <span className="text-sm font-medium text-slate-500">คน</span></p>
+            </div>
           </div>
         </div>
 
+        {/* รายการที่ต้องรอกดอนุมัติด่วน (Pending Queue) */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="p-5 border-b font-bold text-sm text-slate-900 bg-slate-50/50 flex justify-between items-center">
+            <span>🚨 รายการรอกดอนุมัติด่วน (Pending)</span>
+            <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">{pendingCount} รายการ</span>
+          </div>
+          
+          {pendingCount === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-sm font-medium">ไม่มีรายการค้างอนุมัติครับ เคลียร์งานหมดแล้ว! 🎉</div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {checkIns.filter(r => r.status === 'PENDING').map((record) => (
+                <div key={record.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 transition">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">รหัสกิจกรรม: {record.activityId}</span>
+                      <h3 className="text-sm font-bold text-slate-900">{record.studentName} ({record.studentId})</h3>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">🕒 {record.timestamp} | 📍 ระยะห่าง: {record.distance} ม.</p>
+                  </div>
+                  
+                  <button
+                    onClick={() => setSelectedStudent({ 
+                      id: record.studentId, 
+                      name: record.studentName, 
+                      distance: record.distance, 
+                      photoUrl: record.photoUrl,
+                      time: record.timestamp,
+                      recordId: record.id 
+                    })}
+                    className="text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl transition shadow-sm"
+                  >
+                    🔍 เปิดตรวจหลักฐาน
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* เรียกใช้งาน ป๊อปอัปส่องรูป */}
-      <ImageModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        student={selectedStudent}
-      />
+      {/* เรียกใช้งาน ImageModal แบบสมบูรณ์ */}
+      {selectedStudent && (
+        <ImageModal 
+          isOpen={true}
+          student={selectedStudent} 
+          onClose={() => setSelectedStudent(null)} 
+          onApprove={() => handleUpdateStatus(selectedStudent.recordId, 'APPROVED')}
+          onReject={() => handleUpdateStatus(selectedStudent.recordId, 'REJECTED')}
+        />
+      )}
     </div>
   );
 }

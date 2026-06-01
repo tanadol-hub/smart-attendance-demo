@@ -4,9 +4,22 @@
 import React, { useState, useEffect, use } from 'react';
 import CameraFeed from '@/components/student/CameraFeed';
 import { calculateDistance } from '@/lib/geofence';
+import Link from 'next/link';
 
 interface PageProps {
   params: Promise<{ activityCode: string }>;
+}
+
+// 🟢 สร้าง Interface เพื่อระบุประเภทข้อมูลแทนการใช้ any
+interface SavedCheckIn {
+  id: string;
+  activityId: string;
+  studentId: string;
+  studentName: string;
+  timestamp: string;
+  photoUrl: string;
+  distance: number;
+  status: string;
 }
 
 export default function StudentCheckInPage({ params }: PageProps) {
@@ -66,7 +79,26 @@ export default function StudentCheckInPage({ params }: PageProps) {
       alert('กรุณากรอกรหัสนักศึกษาและชื่อ-นามสกุลก่อนเช็คชื่อครับ');
       return;
     }
-    // ส่งข้อมูลสำเร็จ (ในเดโมเราตั้งสถานะเป็นสำเร็จจำลองไว้ก่อน)
+
+    // 📥 บันทึกหลักฐานเช็คชื่อลงฐานข้อมูลจำลองเครื่องกลาง
+    const newCheckIn: SavedCheckIn = {
+      id: 'REC-' + Math.floor(1000 + Math.random() * 9000),
+      activityId: activityCode,
+      studentId: studentId,
+      studentName: studentName,
+      timestamp: new Date().toLocaleTimeString('th-TH') + ' น.',
+      photoUrl: photoData, // แนบรูปถ่าย Base64 
+      distance: distance || 0,
+      status: 'PENDING' // สแตนด์บายรอแอดมินกดอนุมัติ
+    };
+
+    // ดึงของเก่าออกมารวมร่างกับของใหม่
+    const existingCheckIns = JSON.parse(localStorage.getItem('global_checkins') || '[]');
+    
+    // 🟢 แก้ไขจุดนี้: เปลี่ยนจาก (c: any) เป็น (c: SavedCheckIn) เพื่อปิดเออร์เรอร์ TypeScript
+    const filtered = existingCheckIns.filter((c: SavedCheckIn) => !(c.studentId === studentId && c.activityId === activityCode));
+    localStorage.setItem('global_checkins', JSON.stringify([...filtered, newCheckIn]));
+
     setIsSuccess(true);
   };
 
@@ -126,13 +158,16 @@ export default function StudentCheckInPage({ params }: PageProps) {
         <div className="text-center py-12 space-y-4 flex-1 flex flex-col justify-center items-center">
           <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-4xl animate-bounce">✓</div>
           <h2 className="text-2xl font-black text-gray-800">เช็คชื่อสำเร็จ!</h2>
-          <p className="text-gray-500 text-sm max-w-xs">ระบบได้ทำการบันทึกภาพถ่ายใบหน้าและพิกัด GPS เพื่อส่งให้อาารย์ผู้ตรวจเรียบร้อยแล้วครับ</p>
+          <p className="text-gray-500 text-sm max-w-xs">ระบบได้ทำการบันทึกภาพถ่ายใบหน้าและพิกัด GPS เพื่อส่งให้อาจารย์ผู้ตรวจเรียบร้อยแล้วครับ</p>
         </div>
       )}
 
-      <div className="text-center text-[10px] text-gray-400 mt-6 pt-2 border-t">
-        RMUTI Attendance System Demo
-      </div>
+      <Link 
+        href="/student/activities"
+        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-6 py-2.5 rounded-xl shadow transition text-center block mt-4"
+      >
+        ⬅️ กลับไปดูสถานะที่หน้ารวมกิจกรรม
+      </Link>
     </div>
   );
 }
